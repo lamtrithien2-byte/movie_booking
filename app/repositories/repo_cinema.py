@@ -3,20 +3,34 @@ from sqlalchemy.orm import Session
 from app.models.model_cinema import Cinema
 
 
-def filter_cinemas(query, city: str | None = None):
+def filter_cinemas(
+    query,
+    city: str | None = None,
+    district: str | None = None,
+):
     if city and city.strip():
         query = query.filter(Cinema.city.ilike(f"%{city.strip()}%"))
+    if district and district.strip():
+        query = query.filter(Cinema.district.ilike(f"%{district.strip()}%"))
     return query
 
 
-def get_cinemas(db: Session, city: str | None = None):
-    query = filter_cinemas(db.query(Cinema), city)
+def get_cinemas(
+    db: Session,
+    city: str | None = None,
+    district: str | None = None,
+):
+    query = filter_cinemas(db.query(Cinema), city, district)
     return query.order_by(Cinema.id)
 
 
-def get_active_cinemas(db: Session, city: str | None = None):
+def get_active_cinemas(
+    db: Session,
+    city: str | None = None,
+    district: str | None = None,
+):
     query = db.query(Cinema).filter(Cinema.is_active.is_(True))
-    query = filter_cinemas(query, city)
+    query = filter_cinemas(query, city, district)
     return query.order_by(Cinema.id)
 
 

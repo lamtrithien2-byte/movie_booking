@@ -11,6 +11,7 @@ def cinema_data(cinema) -> dict:
         "name": cinema.name,
         "address": cinema.address,
         "city": cinema.city,
+        "district": cinema.district,
         "is_active": cinema.is_active,
     }
 
@@ -21,11 +22,18 @@ def list_cinemas(
     size: int,
     only_active: bool = True,
     city: str | None = None,
+    district: str | None = None,
 ) -> dict:
+    if district and district.strip() and not (city and city.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please choose city before choosing district",
+        )
+
     query = (
-        repo_cinema.get_active_cinemas(db, city)
+        repo_cinema.get_active_cinemas(db, city, district)
         if only_active
-        else repo_cinema.get_cinemas(db, city)
+        else repo_cinema.get_cinemas(db, city, district)
     )
     cinemas, pagination = paginate_query(query, page, size)
     return {

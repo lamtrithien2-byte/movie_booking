@@ -45,7 +45,7 @@ User:
 | GET | `/movies?keyword=aven&type=Action` | Search movie by title and type |
 | GET | `/movies/{movie_id}` | Movie detail |
 | GET | `/cinemas?page=1&size=10` | List active cinemas |
-| GET | `/cinemas?city=Ho Chi Minh` | Filter cinema by city |
+| GET | `/cinemas?city=Ho Chi Minh&district=Quan 1` | Filter cinema by city and district |
 | GET | `/cinemas/{cinema_id}` | Cinema detail |
 
 Admin:
