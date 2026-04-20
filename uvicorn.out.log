@@ -1,6 +1,0 @@
-INFO:     127.0.0.1:53523 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:53523 - "GET /openapi.json HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64321 - "GET / HTTP/1.1" 404 Not Found
-INFO:     127.0.0.1:64322 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64323 - "GET /docs HTTP/1.1" 200 OK
-INFO:     127.0.0.1:64324 - "GET /openapi.json HTTP/1.1" 200 OK
