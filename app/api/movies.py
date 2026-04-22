@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.db_database import get_db
-from app.services.service_auth import get_current_user, require_roles
+from app.services.service_auth import require_roles
 from app.services import service_movie
 
 router = APIRouter(tags=["movies"])
@@ -33,7 +33,6 @@ def get_movies(
     keyword: str | None = Query(default=None, description="Search movie by title"),
     movie_type: str | None = Query(default=None, alias="type", description="Search movie by type"),
     db: Session = Depends(get_db),
-    _current_user: dict = Depends(get_current_user),
 ):
     return service_movie.list_movies(
         db,
@@ -42,6 +41,7 @@ def get_movies(
         only_active=True,
         keyword=keyword,
         movie_type=movie_type,
+        with_schedule=True,
     )
 
 
@@ -49,7 +49,6 @@ def get_movies(
 def get_movie_detail(
     movie_id: int,
     db: Session = Depends(get_db),
-    _current_user: dict = Depends(get_current_user),
 ):
     return service_movie.get_movie(db, movie_id, only_active=True)
 

@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories import repo_cinema
-from app.services.service_pagination import paginate_query
+from app.services.service_pagination import paginate_data
 
 
 def cinema_data(cinema) -> dict:
@@ -35,11 +35,7 @@ def list_cinemas(
         if only_active
         else repo_cinema.get_cinemas(db, city, district)
     )
-    cinemas, pagination = paginate_query(query, page, size)
-    return {
-        "data": [cinema_data(cinema) for cinema in cinemas],
-        "pagination": pagination,
-    }
+    return paginate_data(query, page, size, cinema_data)
 
 
 def get_cinema(db: Session, cinema_id: int, only_active: bool = True) -> dict:

@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.db_database import get_db
-from app.services.service_auth import get_current_user, require_roles
+from app.services.service_auth import require_roles
 from app.services import service_cinema
 
 router = APIRouter(tags=["cinemas"])
@@ -33,7 +33,6 @@ def get_cinemas(
     city: str | None = Query(default=None, description="Filter cinema by city"),
     district: str | None = Query(default=None, description="Filter cinema by district"),
     db: Session = Depends(get_db),
-    _current_user: dict = Depends(get_current_user),
 ):
     return service_cinema.list_cinemas(
         db,
@@ -49,7 +48,6 @@ def get_cinemas(
 def get_cinema_detail(
     cinema_id: int,
     db: Session = Depends(get_db),
-    _current_user: dict = Depends(get_current_user),
 ):
     return service_cinema.get_cinema(db, cinema_id, only_active=True)
 

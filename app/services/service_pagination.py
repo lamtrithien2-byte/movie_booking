@@ -14,3 +14,11 @@ def paginate_query(query: Query, page: int, size: int) -> tuple[list, dict]:
     }
 
     return items, pagination
+
+
+def paginate_data(query: Query, page: int, size: int, data_func) -> dict:
+    items, pagination = paginate_query(query, page, size)
+    return {
+        "data": [data_func(item) for item in items],
+        "pagination": pagination,
+    }
