@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lich chieu phim</title>
+  <style>
+    body {
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 0 16px;
+      font-family: Arial, sans-serif;
+    }
+
+    section {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    select,
+    button {
+      padding: 10px;
+      margin: 4px;
+      cursor: pointer;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .item {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+
+    .active {
+      border-color: #1677ff;
+      background: #eef6ff;
+    }
+
+    .movie {
+      border-top: 1px solid #ddd;
+      padding: 14px 0;
+    }
+
+    .time {
+      display: inline-block;
+      border: 1px solid #1677ff;
+      color: #1677ff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 4px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Lich chieu phim</h1>
+
+  <section>
+    <h3>Thanh pho</h3>
+    <select id="city" onchange="changeCity()"></select>
+  </section>
+
+  <section>
+    <h3>Hang rap</h3>
+    <div id="brands" class="row"></div>
+  </section>
+
+  <section>
+    <h3>Rap</h3>
+    <div id="cinemas"></div>
+  </section>
+
+  <section>
+    <h3>Ngay chieu</h3>
+    <div id="dates" class="row"></div>
+  </section>
+
+  <section>
+    <h3>Phim va suat chieu</h3>
+    <div id="movies"></div>
+  </section>
+
+  <script>
+    let movies = [];
+    let selectedCity = "";
+    let selectedBrand = "";
+    let selectedCinemaId = "";
+    let selectedDate = "";
+
+    async function loadMovies() {
+      const response = await fetch("/movies?size=100");
+      const result = await response.json();
+      movies = result.data;
+
+      const cities = uniqueValues(allCinemas().map(cinema => cinema.city));
+      if (!selectedCity && cities.includes("Ho Chi Minh")) {
+        selectedCity = "Ho Chi Minh";
+      }
+
+      render();
+    }
+
+    function render() {
+      renderCities();
+      renderBrands();
+      renderCinemas();
+      renderDates();
+      renderMovieList();
+    }
+
+    function renderCities() {
+      const cities = uniqueValues(allCinemas().map(cinema => cinema.city));
+      const citySelect = document.getElementById("city");
+      citySelect.innerHTML = `<option value="">Tat ca thanh pho</option>` +
+        cities.map(city => `<option value="${city}">${city}</option>`).join("");
+      citySelect.value = selectedCity;
+    }
+
+    function renderBrands() {
+      const brands = uniqueValues(filteredCinemas(false).map(cinema => brandName(cinema.name)));
+      renderButtons("brands", ["Tat ca", ...brands], selectedBrand || "Tat ca", brand => {
+        selectedBrand = brand === "Tat ca" ? "" : brand;
+        selectedCinemaId = "";
+        selectedDate = "";
+        render();
+      });
+    }
+
+    function renderCinemas() {
+      const box = document.getElementById("cinemas");
+      const cinemas = filteredCinemas(true);
+      box.innerHTML = "";
+
+      if (selectedCinemaId) {
+        const all = document.createElement("div");
+        all.className = "item";
+        all.innerHTML = "<b>Tat ca rap</b>";
+        all.onclick = () => {
+          selectedCinemaId = "";
+          selectedDate = "";
+          render();
+        };
+        box.appendChild(all);
+      }
+
+      cinemas.forEach(cinema => {
+        const div = document.createElement("div");
+        div.className = `item ${String(cinema.id) === String(selectedCinemaId) ? "active" : ""}`;
+        div.innerHTML = `<b>${cinema.name}</b><br>${cinema.district || ""}, ${cinema.city || ""}`;
+        div.onclick = () => {
+          selectedCinemaId = cinema.id;
+          selectedDate = "";
+          render();
+        };
+        box.appendChild(div);
+      });
+
+      if (!cinemas.length) {
+        box.innerHTML = "Khong co rap";
+      }
+    }
+
+    function renderDates() {
+      const dates = uniqueValues(filteredShowtimes(true).map(showtime => showtime.date));
+      const box = document.getElementById("dates");
+      box.innerHTML = "";
+
+      if (!selectedDate && dates.length) {
+        selectedDate = dates[0];
+      }
+
+      dates.forEach(date => {
+        const button = document.createElement("button");
+        button.innerText = shortDate(date);
+        button.className = date === selectedDate ? "active" : "";
+        button.onclick = () => {
+          selectedDate = date;
+          renderMovieList();
+          renderDates();
+        };
+        box.appendChild(button);
+      });
+
+      if (!dates.length) {
+        box.innerHTML = "Khong co ngay chieu";
+      }
+    }
+
+    function renderMovieList() {
+      const box = document.getElementById("movies");
+      box.innerHTML = "";
+
+      movies.forEach(movie => {
+        const showtimes = movieShowtimes(movie);
+        if (!showtimes.length) return;
+
+        const div = document.createElement("div");
+        div.className = "movie";
+        div.innerHTML = `
+          <h3>${movie.title}</h3>
+          <p>${movie.type || ""} - ${movie.duration} phut</p>
+          ${showtimes.map(showtime => `
+            <span class="time">
+              ${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || "Chua co phong"}
+            </span>
+          `).join("")}
+        `;
+        box.appendChild(div);
+      });
+
+      if (!box.innerHTML) {
+        box.innerHTML = "Khong co phim";
+      }
+    }
+
+    function movieShowtimes(movie, ignoreDate = false) {
+      const list = [];
+      movie.cinemas.forEach(cinema => {
+        cinema.showtimes.forEach(showtime => {
+          if (selectedCity && cinema.city !== selectedCity) return;
+          if (selectedBrand && brandName(cinema.name) !== selectedBrand) return;
+          if (selectedCinemaId && String(cinema.id) !== String(selectedCinemaId)) return;
+          if (!ignoreDate && selectedDate && showtime.date !== selectedDate) return;
+
+          list.push({
+            ...showtime,
+            cinema_name: cinema.name,
+          });
+        });
+      });
+      return list;
+    }
+
+    function filteredShowtimes(ignoreDate = false) {
+      return movies.flatMap(movie => movieShowtimes(movie, ignoreDate));
+    }
+
+    function filteredCinemas(useBrand) {
+      return uniqueCinemas(
+        allCinemas().filter(cinema => {
+          if (selectedCity && cinema.city !== selectedCity) return false;
+          if (useBrand && selectedBrand && brandName(cinema.name) !== selectedBrand) return false;
+          return true;
+        })
+      );
+    }
+
+    function allCinemas() {
+      return movies.flatMap(movie => movie.cinemas || []);
+    }
+
+    function uniqueCinemas(cinemas) {
+      const result = {};
+      cinemas.forEach(cinema => {
+        result[cinema.id] = cinema;
+      });
+      return Object.values(result);
+    }
+
+    function renderButtons(id, items, activeValue, onClick) {
+      const box = document.getElementById(id);
+      box.innerHTML = "";
+      items.forEach(item => {
+        const button = document.createElement("button");
+        button.innerText = item;
+        button.className = item === activeValue ? "active" : "";
+        button.onclick = () => onClick(item);
+        box.appendChild(button);
+      });
+    }
+
+    function changeCity() {
+      selectedCity = document.getElementById("city").value;
+      selectedBrand = "";
+      selectedCinemaId = "";
+      selectedDate = "";
+      render();
+    }
+
+    function brandName(cinemaName) {
+      return cinemaName.split(" ")[0];
+    }
+
+    function uniqueValues(values) {
+      return [...new Set(values.filter(Boolean))].sort();
+    }
+
+    function shortDate(date) {
+      const parts = date.split("/");
+      return `${parts[0]}/${parts[1]}`;
+    }
+
+    loadMovies();
+  </script>
+</body>
+</html>
