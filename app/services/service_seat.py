@@ -214,4 +214,5 @@ def book_seats(db: Session, showtime_id: int, selected_seats: list[str]) -> dict
     clear_selected(showtime_id)
     result = get_seats(db, showtime_id)
     result["booking_id"] = booking.id
+    result["ticket_url"] = f"/bookings/{booking.id}/ticket"
     return result
