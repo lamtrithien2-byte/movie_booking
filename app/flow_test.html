@@ -101,6 +101,11 @@
       margin-top: 10px;
       font-weight: bold;
     }
+
+    #ticketLink {
+      display: none;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -109,6 +114,11 @@
   <section>
     <h3>Thanh pho</h3>
     <select id="city" onchange="changeCity()"></select>
+  </section>
+
+  <section>
+    <h3>Ngay chieu</h3>
+    <div id="dates" class="row"></div>
   </section>
 
   <section>
@@ -122,11 +132,6 @@
   </section>
 
   <section>
-    <h3>Ngay chieu</h3>
-    <div id="dates" class="row"></div>
-  </section>
-
-  <section>
     <h3>Phim va suat chieu</h3>
     <div id="movies"></div>
   </section>
@@ -134,11 +139,11 @@
   <section>
     <h3>Ghe ngoi</h3>
     <p id="selectedShowtime">Chua chon suat chieu</p>
-    <p>Ghe da chon se tu bo sau 5 phut neu chua book.</p>
     <p id="seatCount"></p>
     <div id="seats"></div>
     <button onclick="bookSeats()">Book</button>
     <div id="seatMessage" class="message"></div>
+    <a id="ticketLink" target="_blank">Tai ticket PDF</a>
   </section>
 
   <script>
@@ -327,7 +332,15 @@
 
       selectedSeatCodes = [];
       document.getElementById("seatMessage").innerText = "Dat ghe thanh cong";
+      showTicketLink(result.ticket_url);
       renderSeats(result);
+    }
+
+    function showTicketLink(url) {
+      const link = document.getElementById("ticketLink");
+      if (!url) return;
+      link.href = url;
+      link.style.display = "inline-block";
     }
 
     function renderSeats(data) {
@@ -432,6 +445,7 @@
       document.getElementById("seatCount").innerText = "";
       document.getElementById("seats").innerHTML = "";
       document.getElementById("seatMessage").innerText = "";
+      document.getElementById("ticketLink").style.display = "none";
     }
 
     function brandName(cinemaName) {

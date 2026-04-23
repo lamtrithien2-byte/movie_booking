@@ -11,6 +11,10 @@ def create_booking(db: Session, showtime_id: int, user_id: int | None = None):
     return booking
 
 
+def get_booking_by_id(db: Session, booking_id: int):
+    return db.query(Booking).filter(Booking.id == booking_id).first()
+
+
 def get_bookings(
     db: Session,
     movie_id: int | None = None,
