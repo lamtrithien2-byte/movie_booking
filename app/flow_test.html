@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test dat ve</title>
+  <style>
+    body {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 16px;
+      font-family: Arial, sans-serif;
+    }
+
+    section {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    select,
+    button {
+      padding: 10px;
+      margin: 4px;
+      cursor: pointer;
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .item {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 10px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+
+    .active {
+      border-color: #1677ff;
+      background: #eef6ff;
+    }
+
+    .movie {
+      border-top: 1px solid #ddd;
+      padding: 14px 0;
+    }
+
+    .time {
+      display: inline-block;
+      border: 1px solid #1677ff;
+      color: #1677ff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin: 4px;
+      cursor: pointer;
+    }
+
+    .seat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0;
+    }
+
+    .row-name {
+      width: 24px;
+      font-weight: bold;
+    }
+
+    .seat {
+      width: 44px;
+      height: 36px;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      background: white;
+    }
+
+    .seat.available {
+      background: white;
+    }
+
+    .seat.selected {
+      background: #1677ff;
+      color: white;
+      border-color: #1677ff;
+    }
+
+    .seat.booked {
+      background: #999;
+      color: white;
+      border-color: #999;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Test dat ve</h1>
+
+  <section>
+    <h3>Thanh pho</h3>
+    <select id="city" onchange="changeCity()"></select>
+  </section>
+
+  <section>
+    <h3>Hang rap</h3>
+    <div id="brands" class="row"></div>
+  </section>
+
+  <section>
+    <h3>Rap</h3>
+    <div id="cinemas"></div>
+  </section>
+
+  <section>
+    <h3>Ngay chieu</h3>
+    <div id="dates" class="row"></div>
+  </section>
+
+  <section>
+    <h3>Phim va suat chieu</h3>
+    <div id="movies"></div>
+  </section>
+
+  <section>
+    <h3>Ghe ngoi</h3>
+    <p id="selectedShowtime">Chua chon suat chieu</p>
+    <p>Ghe da chon se tu bo sau 5 phut neu chua book.</p>
+    <p id="seatCount"></p>
+    <div id="seats"></div>
+    <button onclick="bookSeats()">Book</button>
+    <div id="seatMessage" class="message"></div>
+  </section>
+
+  <script>
+    let movies = [];
+    let selectedCity = "";
+    let selectedBrand = "";
+    let selectedCinemaId = "";
+    let selectedDate = "";
+    let selectedShowtimeId = "";
+    let selectedSeatCodes = [];
+
+    async function loadMovies() {
+      const response = await fetch("/movies?size=100");
+      const result = await response.json();
+      movies = result.data;
+
+      const cities = uniqueValues(allCinemas().map(cinema => cinema.city));
+      if (!selectedCity && cities.includes("Ho Chi Minh")) {
+        selectedCity = "Ho Chi Minh";
+      }
+
+      render();
+    }
+
+    function render() {
+      renderCities();
+      renderBrands();
+      renderCinemas();
+      renderDates();
+      renderMovieList();
+    }
+
+    function renderCities() {
+      const cities = uniqueValues(allCinemas().map(cinema => cinema.city));
+      const citySelect = document.getElementById("city");
+      citySelect.innerHTML = `<option value="">Tat ca thanh pho</option>` +
+        cities.map(city => `<option value="${city}">${city}</option>`).join("");
+      citySelect.value = selectedCity;
+    }
+
+    function renderBrands() {
+      const brands = uniqueValues(filteredCinemas(false).map(cinema => brandName(cinema.name)));
+      renderButtons("brands", ["Tat ca", ...brands], selectedBrand || "Tat ca", brand => {
+        selectedBrand = brand === "Tat ca" ? "" : brand;
+        selectedCinemaId = "";
+        selectedDate = "";
+        resetSeats();
+        render();
+      });
+    }
+
+    function renderCinemas() {
+      const box = document.getElementById("cinemas");
+      const cinemas = filteredCinemas(true);
+      box.innerHTML = "";
+
+      cinemas.forEach(cinema => {
+        const div = document.createElement("div");
+        div.className = `item ${String(cinema.id) === String(selectedCinemaId) ? "active" : ""}`;
+        div.innerHTML = `<b>${cinema.name}</b><br>${cinema.district || ""}, ${cinema.city || ""}`;
+        div.onclick = () => {
+          selectedCinemaId = cinema.id;
+          selectedDate = "";
+          resetSeats();
+          render();
+        };
+        box.appendChild(div);
+      });
+
+      if (!cinemas.length) {
+        box.innerHTML = "Khong co rap";
+      }
+    }
+
+    function renderDates() {
+      const dates = uniqueValues(filteredShowtimes(true).map(showtime => showtime.date));
+      const box = document.getElementById("dates");
+      box.innerHTML = "";
+
+      if (!selectedDate && dates.length) {
+        selectedDate = dates[0];
+      }
+
+      dates.forEach(date => {
+        const button = document.createElement("button");
+        button.innerText = shortDate(date);
+        button.className = date === selectedDate ? "active" : "";
+        button.onclick = () => {
+          selectedDate = date;
+          resetSeats();
+          renderDates();
+          renderMovieList();
+        };
+        box.appendChild(button);
+      });
+
+      if (!dates.length) {
+        box.innerHTML = "Khong co ngay chieu";
+      }
+    }
+
+    function renderMovieList() {
+      const box = document.getElementById("movies");
+      box.innerHTML = "";
+
+      movies.forEach(movie => {
+        const showtimes = movieShowtimes(movie);
+        if (!showtimes.length) return;
+
+        const div = document.createElement("div");
+        div.className = "movie";
+        div.innerHTML = `
+          <h3>${movie.title}</h3>
+          <p>${movie.type || ""} - ${movie.duration} phut</p>
+        `;
+
+        showtimes.forEach(showtime => {
+          const button = document.createElement("span");
+          button.className = `time ${String(showtime.id) === String(selectedShowtimeId) ? "active" : ""}`;
+          button.innerText = `${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || "Chua co phong"}`;
+          button.onclick = () => chooseShowtime(showtime);
+          div.appendChild(button);
+        });
+
+        box.appendChild(div);
+      });
+
+      if (!box.innerHTML) {
+        box.innerHTML = "Khong co phim";
+      }
+    }
+
+    async function chooseShowtime(showtime) {
+      selectedShowtimeId = showtime.id;
+      selectedSeatCodes = [];
+      document.getElementById("selectedShowtime").innerText =
+        `Suat da chon: ${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || ""}`;
+      document.getElementById("seatMessage").innerText = "";
+      renderMovieList();
+      await loadSeats();
+    }
+
+    async function loadSeats() {
+      if (!selectedShowtimeId) return;
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats`);
+      const result = await response.json();
+      renderSeats(result);
+    }
+
+    async function selectSeat(code, status) {
+      if (status === "booked") return;
+
+      if (selectedSeatCodes.includes(code)) {
+        selectedSeatCodes = selectedSeatCodes.filter(seat => seat !== code);
+      } else {
+        selectedSeatCodes.push(code);
+      }
+
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats/select`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({selected_seats: selectedSeatCodes}),
+      });
+      const result = await response.json();
+      document.getElementById("seatMessage").innerText = result.message || result.detail || "";
+      renderSeats(result);
+    }
+
+    async function bookSeats() {
+      if (!selectedShowtimeId) {
+        document.getElementById("seatMessage").innerText = "Vui long chon suat chieu";
+        return;
+      }
+
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats/book`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({selected_seats: selectedSeatCodes}),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        document.getElementById("seatMessage").innerText = result.detail || "Dat ghe that bai";
+        return;
+      }
+
+      selectedSeatCodes = [];
+      document.getElementById("seatMessage").innerText = "Dat ghe thanh cong";
+      renderSeats(result);
+    }
+
+    function renderSeats(data) {
+      const box = document.getElementById("seats");
+      box.innerHTML = "";
+      document.getElementById("seatCount").innerText = "";
+
+      if (!data.seats) {
+        box.innerHTML = "Khong co ghe";
+        return;
+      }
+
+      document.getElementById("seatCount").innerText =
+        `Con trong: ${data.available_seats}/${data.total_seats} cho ngoi`;
+
+      data.seats.forEach(row => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "seat-row";
+        rowDiv.innerHTML = `<span class="row-name">${row.row}</span>`;
+
+        row.seats.forEach(seat => {
+          const button = document.createElement("button");
+          button.className = `seat ${seat.status}`;
+          button.innerText = seat.code;
+          button.onclick = () => selectSeat(seat.code, seat.status);
+          rowDiv.appendChild(button);
+        });
+
+        box.appendChild(rowDiv);
+      });
+    }
+
+    function movieShowtimes(movie, ignoreDate = false) {
+      const list = [];
+      (movie.cinemas || []).forEach(cinema => {
+        cinema.showtimes.forEach(showtime => {
+          if (selectedCity && cinema.city !== selectedCity) return;
+          if (selectedBrand && brandName(cinema.name) !== selectedBrand) return;
+          if (selectedCinemaId && String(cinema.id) !== String(selectedCinemaId)) return;
+          if (!ignoreDate && selectedDate && showtime.date !== selectedDate) return;
+
+          list.push({
+            ...showtime,
+            cinema_name: cinema.name,
+          });
+        });
+      });
+      return list;
+    }
+
+    function filteredShowtimes(ignoreDate = false) {
+      return movies.flatMap(movie => movieShowtimes(movie, ignoreDate));
+    }
+
+    function filteredCinemas(useBrand) {
+      return uniqueCinemas(
+        allCinemas().filter(cinema => {
+          if (selectedCity && cinema.city !== selectedCity) return false;
+          if (useBrand && selectedBrand && brandName(cinema.name) !== selectedBrand) return false;
+          return true;
+        })
+      );
+    }
+
+    function allCinemas() {
+      return movies.flatMap(movie => movie.cinemas || []);
+    }
+
+    function uniqueCinemas(cinemas) {
+      const result = {};
+      cinemas.forEach(cinema => {
+        result[cinema.id] = cinema;
+      });
+      return Object.values(result);
+    }
+
+    function renderButtons(id, items, activeValue, onClick) {
+      const box = document.getElementById(id);
+      box.innerHTML = "";
+      items.forEach(item => {
+        const button = document.createElement("button");
+        button.innerText = item;
+        button.className = item === activeValue ? "active" : "";
+        button.onclick = () => onClick(item);
+        box.appendChild(button);
+      });
+    }
+
+    function changeCity() {
+      selectedCity = document.getElementById("city").value;
+      selectedBrand = "";
+      selectedCinemaId = "";
+      selectedDate = "";
+      resetSeats();
+      render();
+    }
+
+    function resetSeats() {
+      selectedShowtimeId = "";
+      selectedSeatCodes = [];
+      document.getElementById("selectedShowtime").innerText = "Chua chon suat chieu";
+      document.getElementById("seatCount").innerText = "";
+      document.getElementById("seats").innerHTML = "";
+      document.getElementById("seatMessage").innerText = "";
+    }
+
+    function brandName(cinemaName) {
+      return cinemaName.split(" ")[0];
+    }
+
+    function uniqueValues(values) {
+      return [...new Set(values.filter(Boolean))].sort();
+    }
+
+    function shortDate(date) {
+      const parts = date.split("/");
+      return `${parts[0]}/${parts[1]}`;
+    }
+
+    loadMovies();
+  </script>
+</body>
+</html>

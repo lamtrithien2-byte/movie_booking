@@ -1,3 +1,5 @@
+import re
+
 from sqlalchemy.orm import Session
 
 from app.models.model_movie import Movie
@@ -5,7 +7,9 @@ from app.models.model_movie import Movie
 
 def filter_movies(query, keyword: str | None = None, movie_type: str | None = None):
     if keyword and keyword.strip():
-        query = query.filter(Movie.title.ilike(f"%{keyword.strip()}%"))
+        search_words = re.findall(r"\w+", keyword.strip())
+        for word in search_words:
+            query = query.filter(Movie.title.ilike(f"%{word}%"))
     if movie_type and movie_type.strip():
         query = query.filter(Movie.type.ilike(f"%{movie_type.strip()}%"))
     return query

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.db_database import get_db
 from app.models.model_user import User
 from app.services.service_auth import require_roles
-from app.services.service_pagination import paginate_query
+from app.services.service_pagination import paginate_data
 
 router = APIRouter(prefix="/admin/users", tags=["users"])
 
@@ -31,6 +31,17 @@ class UsersResponse(BaseModel):
     pagination: PaginationData
 
 
+def user_item(user: User) -> dict:
+    return {
+        "id": user.id,
+        "full_name": user.full_name,
+        "email": user.email,
+        "phone": user.phone,
+        "roles": [role.name for role in user.roles],
+        "is_active": user.is_active,
+    }
+
+
 @router.get("", response_model=UsersResponse)
 def get_users(
     page: int = Query(default=1, ge=1),
@@ -38,23 +49,5 @@ def get_users(
     db: Session = Depends(get_db),
     _current_user: dict = Depends(require_roles("admin")),
 ):
-    query = (
-        db.query(User)
-        .order_by(User.id)
-    )
-    users, pagination = paginate_query(query, page, size)
-
-    return {
-        "data": [
-            {
-                "id": user.id,
-                "full_name": user.full_name,
-                "email": user.email,
-                "phone": user.phone,
-                "roles": [role.name for role in user.roles],
-                "is_active": user.is_active,
-            }
-            for user in users
-        ],
-        "pagination": pagination,
-    }
+    query = db.query(User).order_by(User.id)
+    return paginate_data(query, page, size, user_item)

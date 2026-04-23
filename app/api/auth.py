@@ -44,7 +44,7 @@ class RegisterRequest(BaseModel):
         return value or None
 
 
-class RegisterUserData(BaseModel):
+class AuthUserData(BaseModel):
     id: int
     full_name: str
     email: str
@@ -53,11 +53,11 @@ class RegisterUserData(BaseModel):
     is_active: bool
 
 
-class RegisterResponse(BaseModel):
+class AuthResponse(BaseModel):
     message: str
     access_token: str
     token_type: str
-    data: RegisterUserData
+    data: AuthUserData
 
 
 class LoginRequest(BaseModel):
@@ -110,7 +110,7 @@ def auth_response(message: str, user: User) -> dict:
     }
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=RegisterResponse)
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=AuthResponse)
 def register_user(body: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(
@@ -148,7 +148,7 @@ def register_user(body: RegisterRequest, db: Session = Depends(get_db)):
     return auth_response("Register successfully", user)
 
 
-@router.post("/login", response_model=RegisterResponse)
+@router.post("/login", response_model=AuthResponse)
 def login_user(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email).first()
     if user is None:

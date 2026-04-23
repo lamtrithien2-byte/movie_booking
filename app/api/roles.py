@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.db_database import get_db
 from app.models.model_role import Role
 from app.services.service_auth import require_roles
-from app.services.service_pagination import paginate_query
+from app.services.service_pagination import paginate_data
 
 router = APIRouter(prefix="/admin/roles", tags=["roles"])
 
@@ -27,6 +27,13 @@ class RolesResponse(BaseModel):
     pagination: PaginationData
 
 
+def role_item(role: Role) -> dict:
+    return {
+        "id": role.id,
+        "name": role.name,
+    }
+
+
 @router.get("", response_model=RolesResponse)
 def get_roles(
     page: int = Query(default=1, ge=1),
@@ -34,13 +41,5 @@ def get_roles(
     db: Session = Depends(get_db),
     _current_user: dict = Depends(require_roles("admin")),
 ):
-    query = (
-        db.query(Role)
-        .order_by(Role.id)
-    )
-    roles, pagination = paginate_query(query, page, size)
-
-    return {
-        "data": [{"id": role.id, "name": role.name} for role in roles],
-        "pagination": pagination,
-    }
+    query = db.query(Role).order_by(Role.id)
+    return paginate_data(query, page, size, role_item)
