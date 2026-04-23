@@ -61,8 +61,8 @@ User:
 | GET | `/showtimes?movie_title=batman&cinema_id=4` | Search showtimes by selected cinema |
 | GET | `/showtimes?movie_title=batman&city=Ho Chi Minh&district=Quan 7&date=2026-04-22` | Search showtimes like a user, response includes room name |
 | GET | `/showtimes/{showtime_id}` | Showtime detail |
-| GET | `/showtimes/{showtime_id}/seat-map` | Seat map with available and booked seats |
-| POST | `/showtimes/{showtime_id}/seat-map/preview` | Preview selected seats and check single empty seat rule |
+| GET | `/showtimes/{showtime_id}/seats` | List seats with available, selected, and booked status |
+| POST | `/showtimes/{showtime_id}/seats/select` | Select seats before booking |
 | POST | `/showtimes/{showtime_id}/seats/book` | Book selected seats |
 
 Admin:
@@ -71,6 +71,8 @@ Admin:
 | --- | --- | --- |
 | GET | `/admin/users` | List users |
 | GET | `/admin/roles` | List roles |
+| GET | `/admin/bookings` | List booking history |
+| GET | `/admin/bookings?movie_id=1` | List booking history by movie |
 | GET | `/admin/movies` | List all movies |
 | POST | `/admin/movies` | Create movie |
 | PUT | `/admin/movies/{movie_id}` | Update movie |
@@ -101,10 +103,8 @@ Admin APIs require token with role `admin`.
 
 ## PgAdmin helper
 
-Use this view when you want showtimes with movie and cinema names:
+Use this view when you want full booking ticket history:
 
 ```sql
-SELECT * FROM showtime_details;
+SELECT * FROM booking_details;
 ```
-
-Showtimes now also include `room_id` and `room_name`.

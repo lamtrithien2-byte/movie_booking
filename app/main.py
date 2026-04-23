@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import text
 
 from app.api.auth import router as auth_router
+from app.api.bookings import router as bookings_router
 from app.api.cinemas import router as cinemas_router
 from app.api.movies import router as movies_router
 from app.api.roles import router as roles_router
@@ -19,6 +20,7 @@ app = FastAPI()
 app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(roles_router)
+app.include_router(bookings_router)
 app.include_router(movies_router)
 app.include_router(cinemas_router)
 app.include_router(showtimes_router)

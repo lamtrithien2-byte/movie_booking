@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lich chieu phim</title>
+  <title>Test dat ve</title>
   <style>
     body {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 30px auto;
       padding: 0 16px;
       font-family: Arial, sans-serif;
@@ -34,6 +34,7 @@
 
     .item {
       border: 1px solid #ddd;
+      border-radius: 6px;
       padding: 10px;
       margin: 8px 0;
       cursor: pointer;
@@ -56,11 +57,54 @@
       border-radius: 6px;
       padding: 8px 12px;
       margin: 4px;
+      cursor: pointer;
+    }
+
+    .seat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 6px 0;
+    }
+
+    .row-name {
+      width: 24px;
+      font-weight: bold;
+    }
+
+    .seat {
+      width: 44px;
+      height: 36px;
+      border: 1px solid #aaa;
+      border-radius: 6px;
+      background: white;
+    }
+
+    .seat.available {
+      background: white;
+    }
+
+    .seat.selected {
+      background: #1677ff;
+      color: white;
+      border-color: #1677ff;
+    }
+
+    .seat.booked {
+      background: #999;
+      color: white;
+      border-color: #999;
+      cursor: not-allowed;
+    }
+
+    .message {
+      margin-top: 10px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>Lich chieu phim</h1>
+  <h1>Test dat ve</h1>
 
   <section>
     <h3>Thanh pho</h3>
@@ -87,12 +131,24 @@
     <div id="movies"></div>
   </section>
 
+  <section>
+    <h3>Ghe ngoi</h3>
+    <p id="selectedShowtime">Chua chon suat chieu</p>
+    <p>Ghe da chon se tu bo sau 5 phut neu chua book.</p>
+    <p id="seatCount"></p>
+    <div id="seats"></div>
+    <button onclick="bookSeats()">Book</button>
+    <div id="seatMessage" class="message"></div>
+  </section>
+
   <script>
     let movies = [];
     let selectedCity = "";
     let selectedBrand = "";
     let selectedCinemaId = "";
     let selectedDate = "";
+    let selectedShowtimeId = "";
+    let selectedSeatCodes = [];
 
     async function loadMovies() {
       const response = await fetch("/movies?size=100");
@@ -129,6 +185,7 @@
         selectedBrand = brand === "Tat ca" ? "" : brand;
         selectedCinemaId = "";
         selectedDate = "";
+        resetSeats();
         render();
       });
     }
@@ -138,18 +195,6 @@
       const cinemas = filteredCinemas(true);
       box.innerHTML = "";
 
-      if (selectedCinemaId) {
-        const all = document.createElement("div");
-        all.className = "item";
-        all.innerHTML = "<b>Tat ca rap</b>";
-        all.onclick = () => {
-          selectedCinemaId = "";
-          selectedDate = "";
-          render();
-        };
-        box.appendChild(all);
-      }
-
       cinemas.forEach(cinema => {
         const div = document.createElement("div");
         div.className = `item ${String(cinema.id) === String(selectedCinemaId) ? "active" : ""}`;
@@ -157,6 +202,7 @@
         div.onclick = () => {
           selectedCinemaId = cinema.id;
           selectedDate = "";
+          resetSeats();
           render();
         };
         box.appendChild(div);
@@ -182,8 +228,9 @@
         button.className = date === selectedDate ? "active" : "";
         button.onclick = () => {
           selectedDate = date;
-          renderMovieList();
+          resetSeats();
           renderDates();
+          renderMovieList();
         };
         box.appendChild(button);
       });
@@ -206,12 +253,16 @@
         div.innerHTML = `
           <h3>${movie.title}</h3>
           <p>${movie.type || ""} - ${movie.duration} phut</p>
-          ${showtimes.map(showtime => `
-            <span class="time">
-              ${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || "Chua co phong"}
-            </span>
-          `).join("")}
         `;
+
+        showtimes.forEach(showtime => {
+          const button = document.createElement("span");
+          button.className = `time ${String(showtime.id) === String(selectedShowtimeId) ? "active" : ""}`;
+          button.innerText = `${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || "Chua co phong"}`;
+          button.onclick = () => chooseShowtime(showtime);
+          div.appendChild(button);
+        });
+
         box.appendChild(div);
       });
 
@@ -220,9 +271,98 @@
       }
     }
 
+    async function chooseShowtime(showtime) {
+      selectedShowtimeId = showtime.id;
+      selectedSeatCodes = [];
+      document.getElementById("selectedShowtime").innerText =
+        `Suat da chon: ${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || ""}`;
+      document.getElementById("seatMessage").innerText = "";
+      renderMovieList();
+      await loadSeats();
+    }
+
+    async function loadSeats() {
+      if (!selectedShowtimeId) return;
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats`);
+      const result = await response.json();
+      renderSeats(result);
+    }
+
+    async function selectSeat(code, status) {
+      if (status === "booked") return;
+
+      if (selectedSeatCodes.includes(code)) {
+        selectedSeatCodes = selectedSeatCodes.filter(seat => seat !== code);
+      } else {
+        selectedSeatCodes.push(code);
+      }
+
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats/select`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({selected_seats: selectedSeatCodes}),
+      });
+      const result = await response.json();
+      document.getElementById("seatMessage").innerText = result.message || result.detail || "";
+      renderSeats(result);
+    }
+
+    async function bookSeats() {
+      if (!selectedShowtimeId) {
+        document.getElementById("seatMessage").innerText = "Vui long chon suat chieu";
+        return;
+      }
+
+      const response = await fetch(`/showtimes/${selectedShowtimeId}/seats/book`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({selected_seats: selectedSeatCodes}),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        document.getElementById("seatMessage").innerText = result.detail || "Dat ghe that bai";
+        return;
+      }
+
+      selectedSeatCodes = [];
+      document.getElementById("seatMessage").innerText = "Dat ghe thanh cong";
+      renderSeats(result);
+    }
+
+    function renderSeats(data) {
+      const box = document.getElementById("seats");
+      box.innerHTML = "";
+      document.getElementById("seatCount").innerText = "";
+
+      if (!data.seats) {
+        box.innerHTML = "Khong co ghe";
+        return;
+      }
+
+      document.getElementById("seatCount").innerText =
+        `Con trong: ${data.available_seats}/${data.total_seats} cho ngoi`;
+
+      data.seats.forEach(row => {
+        const rowDiv = document.createElement("div");
+        rowDiv.className = "seat-row";
+        rowDiv.innerHTML = `<span class="row-name">${row.row}</span>`;
+
+        row.seats.forEach(seat => {
+          const button = document.createElement("button");
+          button.className = `seat ${seat.status}`;
+          button.innerText = seat.code;
+          button.onclick = () => selectSeat(seat.code, seat.status);
+          rowDiv.appendChild(button);
+        });
+
+        box.appendChild(rowDiv);
+      });
+    }
+
     function movieShowtimes(movie, ignoreDate = false) {
       const list = [];
-      movie.cinemas.forEach(cinema => {
+      (movie.cinemas || []).forEach(cinema => {
         cinema.showtimes.forEach(showtime => {
           if (selectedCity && cinema.city !== selectedCity) return;
           if (selectedBrand && brandName(cinema.name) !== selectedBrand) return;
@@ -281,7 +421,17 @@
       selectedBrand = "";
       selectedCinemaId = "";
       selectedDate = "";
+      resetSeats();
       render();
+    }
+
+    function resetSeats() {
+      selectedShowtimeId = "";
+      selectedSeatCodes = [];
+      document.getElementById("selectedShowtime").innerText = "Chua chon suat chieu";
+      document.getElementById("seatCount").innerText = "";
+      document.getElementById("seats").innerHTML = "";
+      document.getElementById("seatMessage").innerText = "";
     }
 
     function brandName(cinemaName) {
