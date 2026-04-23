@@ -5,7 +5,7 @@ from app.repositories import repo_movie, repo_showtime
 from app.services.service_pagination import paginate_data
 
 
-def movie_data(movie) -> dict:
+def movie_basic_data(movie) -> dict:
     return {
         "id": movie.id,
         "title": movie.title,
@@ -16,6 +16,12 @@ def movie_data(movie) -> dict:
     }
 
 
+def movie_data(db: Session, movie) -> dict:
+    data = movie_basic_data(movie)
+    data["cinemas"] = movie_cinemas(db, movie)
+    return data
+
+
 def list_movies(
     db: Session,
     page: int,
@@ -23,31 +29,20 @@ def list_movies(
     only_active: bool = True,
     keyword: str | None = None,
     movie_type: str | None = None,
-    with_schedule: bool = False,
 ) -> dict:
     query = (
         repo_movie.get_active_movies(db, keyword, movie_type)
         if only_active
         else repo_movie.get_movies(db, keyword, movie_type)
     )
-    data_func = movie_full_data(db) if with_schedule else movie_data
-    return paginate_data(query, page, size, data_func)
+    return paginate_data(query, page, size, lambda movie: movie_data(db, movie))
 
 
 def get_movie(db: Session, movie_id: int, only_active: bool = True) -> dict:
     movie = repo_movie.get_movie_by_id(db, movie_id)
     if movie is None or (only_active and not movie.is_active):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
-    return movie_data(movie)
-
-
-def movie_full_data(db: Session):
-    def build(movie) -> dict:
-        data = movie_data(movie)
-        data["cinemas"] = movie_cinemas(db, movie)
-        return data
-
-    return build
+    return movie_basic_data(movie)
 
 
 def movie_cinemas(db: Session, movie) -> list[dict]:
@@ -89,14 +84,14 @@ def movie_cinemas(db: Session, movie) -> list[dict]:
 
 
 def create_movie(db: Session, data: dict) -> dict:
-    return movie_data(repo_movie.create_movie(db, data))
+    return movie_basic_data(repo_movie.create_movie(db, data))
 
 
 def update_movie(db: Session, movie_id: int, data: dict) -> dict:
     movie = repo_movie.get_movie_by_id(db, movie_id)
     if movie is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
-    return movie_data(repo_movie.update_movie(db, movie, data))
+    return movie_basic_data(repo_movie.update_movie(db, movie, data))
 
 
 def delete_movie(db: Session, movie_id: int) -> dict:

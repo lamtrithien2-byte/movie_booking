@@ -41,7 +41,6 @@ def get_movies(
         only_active=True,
         keyword=keyword,
         movie_type=movie_type,
-        with_schedule=True,
     )
 
 
