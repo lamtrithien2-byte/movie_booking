@@ -20,7 +20,13 @@ def filter_rooms(
         query = query.join(Showtime, Room.id == Showtime.room_id)
         query = query.filter(Showtime.id == showtime_id)
 
-    if cinema_name and cinema_name.strip() or city and city.strip() or district and district.strip():
+    has_cinema_filter = (
+        cinema_name and cinema_name.strip()
+        or city and city.strip()
+        or district and district.strip()
+    )
+
+    if has_cinema_filter:
         query = query.join(Cinema, Room.cinema_id == Cinema.id)
 
         if cinema_name and cinema_name.strip():

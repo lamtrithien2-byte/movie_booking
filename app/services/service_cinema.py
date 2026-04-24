@@ -24,7 +24,10 @@ def list_cinemas(
     city: str | None = None,
     district: str | None = None,
 ) -> dict:
-    if district and district.strip() and not (city and city.strip()):
+    has_city = bool(city and city.strip())
+    has_district = bool(district and district.strip())
+
+    if has_district and not has_city:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please choose city before choosing district",
