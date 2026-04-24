@@ -49,9 +49,8 @@ def user_data(user) -> dict | None:
     if user is None:
         return None
     return {
-        "id": user.id,
         "full_name": user.full_name,
-        "email": user.email,
+        "phone": user.phone,
     }
 
 

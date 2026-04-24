@@ -106,6 +106,21 @@
       display: none;
       margin-top: 10px;
     }
+
+    #paymentBox {
+      display: none;
+    }
+
+    .field {
+      margin: 8px 0;
+    }
+
+    .field input,
+    .field select {
+      min-width: 240px;
+      padding: 10px;
+      margin-left: 8px;
+    }
   </style>
 </head>
 <body>
@@ -141,8 +156,27 @@
     <p id="selectedShowtime">Chua chon suat chieu</p>
     <p id="seatCount"></p>
     <div id="seats"></div>
-    <button onclick="bookSeats()">Book</button>
+    <button onclick="bookSeats()">Giu ghe tam</button>
     <div id="seatMessage" class="message"></div>
+  </section>
+
+  <section id="paymentBox">
+    <h3>Thanh toan</h3>
+    <p id="bookingInfo">Chua co booking</p>
+    <p id="paymentCountdown"></p>
+    <div class="field">
+      <label>Voucher</label>
+      <input id="voucherCode" placeholder="Nhap ma voucher">
+    </div>
+    <div class="field">
+      <label>Phuong thuc</label>
+      <select id="paymentMethod">
+        <option value="bank_transfer">Chuyen khoan</option>
+        <option value="card">The</option>
+      </select>
+    </div>
+    <button onclick="createPayment()">Thanh toan</button>
+    <div id="paymentMessage" class="message"></div>
     <a id="ticketLink" target="_blank">Tai ticket PDF</a>
   </section>
 
@@ -154,6 +188,8 @@
     let selectedDate = "";
     let selectedShowtimeId = "";
     let selectedSeatCodes = [];
+    let currentBookingId = "";
+    let paymentTimer = null;
 
     async function loadMovies() {
       const response = await fetch("/movies?size=100");
@@ -279,6 +315,7 @@
     async function chooseShowtime(showtime) {
       selectedShowtimeId = showtime.id;
       selectedSeatCodes = [];
+      currentBookingId = "";
       document.getElementById("selectedShowtime").innerText =
         `Suat da chon: ${showtime.time} - ${showtime.cinema_name} - ${showtime.room.name || ""}`;
       document.getElementById("seatMessage").innerText = "";
@@ -331,8 +368,10 @@
       }
 
       selectedSeatCodes = [];
-      document.getElementById("seatMessage").innerText = "Dat ghe thanh cong";
-      showTicketLink(result.ticket_url);
+      currentBookingId = result.booking_id;
+      document.getElementById("seatMessage").innerText =
+        "Da tao don tam. Thanh toan xong moi xac nhan ghe da dat.";
+      showPaymentBox(result.booking_id, result.expires_at);
       renderSeats(result);
     }
 
@@ -341,6 +380,84 @@
       if (!url) return;
       link.href = url;
       link.style.display = "inline-block";
+    }
+
+    function showPaymentBox(bookingId, expiresAt) {
+      document.getElementById("paymentBox").style.display = "block";
+      document.getElementById("bookingInfo").innerText = `Booking ID: ${bookingId}`;
+      document.getElementById("paymentMessage").innerText = "";
+      document.getElementById("ticketLink").style.display = "none";
+      startPaymentCountdown(expiresAt);
+    }
+
+    function paymentBody() {
+      return {
+        payment_method: document.getElementById("paymentMethod").value,
+        voucher_code: document.getElementById("voucherCode").value || null,
+      };
+    }
+
+    async function createPayment() {
+      if (!currentBookingId) {
+        document.getElementById("paymentMessage").innerText = "Vui long book ghe truoc";
+        return;
+      }
+
+      const response = await fetch(`/bookings/${currentBookingId}/payments`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(paymentBody()),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        document.getElementById("paymentMessage").innerText = result.detail || "Tao payment that bai";
+        return;
+      }
+
+      document.getElementById("paymentMessage").innerText =
+        `Thanh toan thanh cong. So tien: ${result.final_amount}`;
+      clearPaymentCountdown();
+      await loadSeats();
+      if (result.ticket_url) {
+        showTicketLink(result.ticket_url);
+      }
+    }
+
+    function startPaymentCountdown(expiresAt) {
+      clearPaymentCountdown();
+      if (!expiresAt) {
+        document.getElementById("paymentCountdown").innerText = "";
+        return;
+      }
+
+      const expiredAt = new Date(expiresAt);
+      const renderCountdown = async () => {
+        const secondsLeft = Math.max(0, Math.floor((expiredAt - new Date()) / 1000));
+        if (!secondsLeft) {
+          clearPaymentCountdown();
+          document.getElementById("paymentCountdown").innerText = "Da het 5 phut giu ghe";
+          document.getElementById("paymentMessage").innerText = "Het thoi gian thanh toan, ghe da duoc nha";
+          currentBookingId = "";
+          await loadSeats();
+          return;
+        }
+
+        const minute = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+        const second = String(secondsLeft % 60).padStart(2, "0");
+        document.getElementById("paymentCountdown").innerText =
+          `Con ${minute}:${second} de thanh toan`;
+      };
+
+      renderCountdown();
+      paymentTimer = setInterval(renderCountdown, 1000);
+    }
+
+    function clearPaymentCountdown() {
+      if (paymentTimer) {
+        clearInterval(paymentTimer);
+        paymentTimer = null;
+      }
     }
 
     function renderSeats(data) {
@@ -441,11 +558,17 @@
     function resetSeats() {
       selectedShowtimeId = "";
       selectedSeatCodes = [];
+      currentBookingId = "";
       document.getElementById("selectedShowtime").innerText = "Chua chon suat chieu";
       document.getElementById("seatCount").innerText = "";
       document.getElementById("seats").innerHTML = "";
       document.getElementById("seatMessage").innerText = "";
       document.getElementById("ticketLink").style.display = "none";
+      document.getElementById("paymentBox").style.display = "none";
+      document.getElementById("paymentMessage").innerText = "";
+      document.getElementById("bookingInfo").innerText = "Chua co booking";
+      document.getElementById("paymentCountdown").innerText = "";
+      clearPaymentCountdown();
     }
 
     function brandName(cinemaName) {

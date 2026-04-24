@@ -1,4 +1,5 @@
 import time
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +24,14 @@ def normalize_seats(seats: list[str]) -> set[str]:
     return {seat.strip().upper() for seat in seats if seat.strip()}
 
 
+def seat_codes_text(seats: set[str]) -> str:
+    return ",".join(sorted(seats))
+
+
+def hold_expired_at() -> datetime:
+    return datetime.now(timezone.utc) + timedelta(seconds=SELECT_EXPIRE_SECONDS)
+
+
 def save_selected(showtime_id: int, seats: set[str]) -> None:
     selected_cache[showtime_id] = (seats, time.time() + SELECT_EXPIRE_SECONDS)
 
@@ -45,6 +54,7 @@ def clear_selected(showtime_id: int) -> None:
 
 
 def get_showtime(db: Session, showtime_id: int):
+    cleanup_expired_bookings(db, showtime_id=showtime_id)
     showtime = repo_showtime.get_showtime_by_id(db, showtime_id)
     if showtime is None or not showtime.is_active:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay suat chieu")
@@ -55,6 +65,23 @@ def get_showtime(db: Session, showtime_id: int):
 
 def booked_codes(db: Session, showtime_id: int) -> set[str]:
     return {seat.seat_code for seat in repo_seat.get_booked_seats(db, showtime_id)}
+
+
+def cleanup_expired_bookings(
+    db: Session,
+    showtime_id: int | None = None,
+    booking_id: int | None = None,
+) -> None:
+    if repo_booking.expire_pending_bookings(db, showtime_id=showtime_id, booking_id=booking_id):
+        db.commit()
+
+
+def held_codes(db: Session, showtime_id: int) -> set[str]:
+    codes = set()
+    for booking in repo_booking.get_active_pending_bookings(db, showtime_id):
+        if booking.pending_seats:
+            codes.update(normalize_seats(booking.pending_seats.split(",")))
+    return codes
 
 
 def valid_codes(room) -> set[str]:
@@ -73,7 +100,8 @@ def get_seats(db: Session, showtime_id: int, selected_seats: list[str] | None = 
         else normalize_seats(selected_seats)
     )
     booked = booked_codes(db, showtime_id)
-    is_valid, message = validate_seats(showtime.room, selected, booked)
+    held = held_codes(db, showtime_id)
+    is_valid, message = validate_seats(showtime.room, selected, booked | held)
     total = showtime.room.total_rows * showtime.room.total_cols
 
     return {
@@ -86,10 +114,11 @@ def get_seats(db: Session, showtime_id: int, selected_seats: list[str] | None = 
         },
         "total_seats": total,
         "booked_seats": len(booked),
-        "available_seats": total - len(booked),
+        "held_seats": len(held),
+        "available_seats": total - len(booked) - len(held),
         "is_valid": is_valid,
         "message": message,
-        "seats": build_seats(showtime.room, selected, booked),
+        "seats": build_seats(showtime.room, selected | held, booked),
     }
 
 
@@ -185,11 +214,13 @@ def book_seats(db: Session, showtime_id: int, selected_seats: list[str]) -> dict
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Vui long chon ghe")
 
     booked = booked_codes(db, showtime_id)
-    already_booked = selected & booked
-    if already_booked:
+    held = held_codes(db, showtime_id)
+    occupied = booked | held
+    occupied_selected = selected & occupied
+    if occupied_selected:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ghe da duoc dat: {', '.join(sorted(already_booked))}",
+            detail=f"Ghe da duoc giu hoac dat: {', '.join(sorted(occupied_selected))}",
         )
 
     if selected != get_selected(showtime_id):
@@ -198,13 +229,18 @@ def book_seats(db: Session, showtime_id: int, selected_seats: list[str]) -> dict
             detail="Vui long chon ghe truoc khi dat hoac ghe da het thoi gian giu",
         )
 
-    is_valid, message = validate_seats(showtime.room, selected, booked)
+    is_valid, message = validate_seats(showtime.room, selected, occupied)
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
     try:
-        booking = repo_booking.create_booking(db, showtime_id)
-        repo_seat.create_booked_seats(db, showtime_id, sorted(selected), booking.id)
+        booking = repo_booking.create_booking(
+            db,
+            showtime_id,
+            status="pending_payment",
+            pending_seats=seat_codes_text(selected),
+            pending_expires_at=hold_expired_at(),
+        )
         db.commit()
         db.refresh(booking)
     except IntegrityError as exc:
@@ -214,5 +250,8 @@ def book_seats(db: Session, showtime_id: int, selected_seats: list[str]) -> dict
     clear_selected(showtime_id)
     result = get_seats(db, showtime_id)
     result["booking_id"] = booking.id
-    result["ticket_url"] = f"/bookings/{booking.id}/ticket"
+    result["payment_required"] = True
+    result["payment_url"] = f"/bookings/{booking.id}/payments"
+    result["expires_at"] = booking.pending_expires_at.isoformat() if booking.pending_expires_at else None
+    result["seconds_left"] = SELECT_EXPIRE_SECONDS
     return result

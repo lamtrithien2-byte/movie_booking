@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.db_database import get_db
-from app.services import service_seat, service_ticket
+from app.services import service_seat
 
 router = APIRouter(tags=["seats"])
 
@@ -34,13 +33,3 @@ def book_seats(
     db: Session = Depends(get_db),
 ):
     return service_seat.book_seats(db, showtime_id, body.selected_seats)
-
-
-@router.get("/bookings/{booking_id}/ticket")
-def download_ticket(booking_id: int, db: Session = Depends(get_db)):
-    path = service_ticket.create_ticket_pdf(db, booking_id)
-    return FileResponse(
-        path,
-        media_type="application/pdf",
-        filename=path.name,
-    )

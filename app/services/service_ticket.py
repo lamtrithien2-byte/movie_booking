@@ -4,52 +4,48 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories import repo_booking
-from app.services.service_booking import booking_data
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-TICKET_DIR = BASE_DIR / "tickets"
+TICKET_DIR = Path(__file__).resolve().parents[1] / "tickets"
 
 
 def ticket_path(booking_id: int) -> Path:
     return TICKET_DIR / f"ticket_BK{booking_id:06d}.pdf"
 
 
-def create_ticket_pdf(db: Session, booking_id: int) -> Path:
-    booking = repo_booking.get_booking_by_id(db, booking_id)
-    if booking is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay booking")
-
-    ticket = booking_data(booking)
-    movie = ticket["movie"]
-    cinema = ticket["cinema"]
-    room = ticket["room"]
-    showtime = ticket["showtime"]
-
-    lines = [
+def ticket_lines(ticket: dict) -> list[str]:
+    return [
         "MOVIE BOOKING TICKET",
         f"Ma ve: {ticket['ticket_code']}",
-        f"Trang thai: {ticket['status']}",
         "",
-        f"Phim: {movie['title']}",
-        f"The loai: {movie['type'] or ''}",
-        f"Thoi luong: {movie['duration']} phut",
+        f"Phim: {ticket['movie_title']}",
+        f"The loai: {ticket['movie_type'] or ''}",
+        f"Thoi luong: {ticket['movie_duration']} phut",
         "",
-        f"Rap: {cinema['name']}",
-        f"Dia chi: {cinema['address']}",
-        f"Thanh pho: {cinema['city']}",
-        f"Quan: {cinema['district'] or ''}",
+        f"Rap: {ticket['cinema_name']}",
+        f"Dia chi: {ticket['cinema_address']}",
+        f"Thanh pho: {ticket['cinema_city']}",
+        f"Quan: {ticket['cinema_district'] or ''}",
         "",
-        f"Ngay chieu: {showtime['date']}",
-        f"Gio chieu: {showtime['time']}",
-        f"Phong: {room['name'] if room else ''}",
-        f"Ghe: {', '.join(ticket['seats'])}",
+        f"Ngay chieu: {ticket['show_date']}",
+        f"Gio chieu: {ticket['show_time']}",
+        f"Thanh toan: {ticket['payment_method'] or ''}",
+        f"Voucher: {ticket.get('voucher_code') or ''}",
+        f"Tien thanh toan: {ticket.get('final_amount') or 0}",
+        f"Phong: {ticket['room_name'] or ''}",
+        f"Ghe: {ticket['seats'] or ''}",
         f"So luong ghe: {ticket['total_seats']}",
         "",
     ]
 
-    TICKET_DIR.mkdir(parents=True, exist_ok=True)
+
+def create_ticket_pdf(db: Session, booking_id: int) -> Path:
+    ticket = repo_booking.get_booking_detail_by_id(db, booking_id)
+    if ticket is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay booking")
+
     path = ticket_path(booking_id)
-    path.write_bytes(build_pdf(lines))
+    TICKET_DIR.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(build_pdf(ticket_lines(ticket)))
     return path
 
 
@@ -80,14 +76,13 @@ def build_pdf(lines: list[str]) -> bytes:
         pdf.extend(b"\nendobj\n")
 
     xref_start = len(pdf)
-    pdf.extend(f"xref\n0 {len(objects) + 1}\n".encode())
+    object_count = len(objects) + 1
+    pdf.extend(f"xref\n0 {object_count}\n".encode())
     pdf.extend(b"0000000000 65535 f \n")
     for offset in offsets[1:]:
         pdf.extend(f"{offset:010d} 00000 n \n".encode())
 
-    pdf.extend(
-        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF".encode()
-    )
+    pdf.extend(f"trailer\n<< /Size {object_count} /Root 1 0 R >>\nstartxref\n{xref_start}\n%%EOF".encode())
     return bytes(pdf)
 
 
