@@ -55,7 +55,7 @@ def list_rooms(
     if has_district and not has_city:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please choose city before choosing district",
+            detail="Vui long chon thanh pho truoc khi chon quan",
         )
 
     query = (
@@ -70,13 +70,13 @@ def list_rooms(
 def get_room(db: Session, room_id: int, only_active: bool = True, user_view: bool = False) -> dict:
     room = repo_room.get_room_by_id(db, room_id)
     if room is None or (only_active and not room.is_active):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phong")
     return user_room_data(room) if user_view else room_data(room)
 
 
 def check_cinema(db: Session, cinema_id: int) -> None:
     if repo_cinema.get_cinema_by_id(db, cinema_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cinema not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay rap")
 
 
 def check_duplicate_room(db: Session, cinema_id: int, name: str, room_id: int | None = None) -> None:
@@ -84,7 +84,7 @@ def check_duplicate_room(db: Session, cinema_id: int, name: str, room_id: int | 
     if room and room.id != room_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Room name already exists in this cinema",
+            detail="Ten phong da ton tai trong rap nay",
         )
 
 
@@ -97,7 +97,7 @@ def create_room(db: Session, data: dict) -> dict:
 def update_room(db: Session, room_id: int, data: dict) -> dict:
     room = repo_room.get_room_by_id(db, room_id)
     if room is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phong")
 
     check_cinema(db, data["cinema_id"])
     check_duplicate_room(db, data["cinema_id"], data["name"], room_id)
@@ -107,6 +107,6 @@ def update_room(db: Session, room_id: int, data: dict) -> dict:
 def delete_room(db: Session, room_id: int) -> dict:
     room = repo_room.get_room_by_id(db, room_id)
     if room is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phong")
     repo_room.delete_room(db, room)
-    return {"message": "Room deleted successfully"}
+    return {"message": "Da xoa phong"}

@@ -25,7 +25,7 @@ class ShowtimeRequest(BaseModel):
         try:
             datetime.strptime(value, "%d/%m/%Y")
         except ValueError as exc:
-            raise ValueError("show_date must be dd/mm/yyyy, example: 22/04/2026") from exc
+            raise ValueError("show_date phai co dang dd/mm/yyyy, vi du: 22/04/2026") from exc
         return value
 
     @field_validator("show_time")
@@ -34,7 +34,7 @@ class ShowtimeRequest(BaseModel):
         try:
             datetime.strptime(value, "%H:%M")
         except ValueError as exc:
-            raise ValueError("show_time must be HH:MM, example: 20:30") from exc
+            raise ValueError("show_time phai co dang HH:MM, vi du: 20:30") from exc
         return value
 
     def to_data(self) -> dict:

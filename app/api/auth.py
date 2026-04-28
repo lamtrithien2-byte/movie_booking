@@ -30,7 +30,7 @@ class RegisterRequest(BaseModel):
     def validate_email(cls, value: str) -> str:
         value = value.strip().lower()
         if "@" not in value or "." not in value.split("@")[-1]:
-            raise ValueError("Email is not valid")
+            raise ValueError("Email khong hop le")
         return value
 
     @field_validator("phone")
@@ -40,7 +40,7 @@ class RegisterRequest(BaseModel):
             return None
         value = value.strip()
         if value and not value.replace("+", "").isdigit():
-            raise ValueError("Phone must contain only numbers")
+            raise ValueError("So dien thoai chi duoc nhap so")
         return value or None
 
 
@@ -69,7 +69,7 @@ class LoginRequest(BaseModel):
     def validate_email(cls, value: str) -> str:
         value = value.strip().lower()
         if "@" not in value or "." not in value.split("@")[-1]:
-            raise ValueError("Email is not valid")
+            raise ValueError("Email khong hop le")
         return value
 
 
@@ -115,13 +115,13 @@ def register_user(body: RegisterRequest, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already exists",
+            detail="Email da ton tai",
         )
 
     if body.phone and db.query(User).filter(User.phone == body.phone).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Phone already exists",
+            detail="So dien thoai da ton tai",
         )
 
     role = db.query(Role).filter(Role.name == "user").first()
@@ -145,7 +145,7 @@ def register_user(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    return auth_response("Register successfully", user)
+    return auth_response("Dang ky thanh cong", user)
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -154,22 +154,22 @@ def login_user(body: LoginRequest, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email does not exist",
+            detail="Email khong ton tai",
         )
 
     if not verify_password(body.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Password is incorrect",
+            detail="Mat khau khong dung",
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User is inactive",
+            detail="Tai khoan da bi khoa",
         )
 
-    return auth_response("Login successfully", user)
+    return auth_response("Dang nhap thanh cong", user)
 
 
 @router.get("/me")

@@ -30,7 +30,7 @@ def list_cinemas(
     if has_district and not has_city:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please choose city before choosing district",
+            detail="Vui long chon thanh pho truoc khi chon quan",
         )
 
     query = (
@@ -44,7 +44,7 @@ def list_cinemas(
 def get_cinema(db: Session, cinema_id: int, only_active: bool = True) -> dict:
     cinema = repo_cinema.get_cinema_by_id(db, cinema_id)
     if cinema is None or (only_active and not cinema.is_active):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cinema not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay rap")
     return cinema_data(cinema)
 
 
@@ -55,13 +55,13 @@ def create_cinema(db: Session, data: dict) -> dict:
 def update_cinema(db: Session, cinema_id: int, data: dict) -> dict:
     cinema = repo_cinema.get_cinema_by_id(db, cinema_id)
     if cinema is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cinema not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay rap")
     return cinema_data(repo_cinema.update_cinema(db, cinema, data))
 
 
 def delete_cinema(db: Session, cinema_id: int) -> dict:
     cinema = repo_cinema.get_cinema_by_id(db, cinema_id)
     if cinema is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cinema not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay rap")
     repo_cinema.delete_cinema(db, cinema)
-    return {"message": "Cinema deleted successfully"}
+    return {"message": "Da xoa rap"}

@@ -168,13 +168,6 @@
       <label>Voucher</label>
       <input id="voucherCode" placeholder="Nhap ma voucher">
     </div>
-    <div class="field">
-      <label>Phuong thuc</label>
-      <select id="paymentMethod">
-        <option value="bank_transfer">Chuyen khoan</option>
-        <option value="card">The</option>
-      </select>
-    </div>
     <button onclick="createPayment()">Thanh toan</button>
     <div id="paymentMessage" class="message"></div>
     <a id="ticketLink" target="_blank">Tai ticket PDF</a>
@@ -190,6 +183,7 @@
     let selectedSeatCodes = [];
     let currentBookingId = "";
     let paymentTimer = null;
+    let paymentStatusTimer = null;
 
     async function loadMovies() {
       const response = await fetch("/movies?size=100");
@@ -368,7 +362,7 @@
       }
 
       selectedSeatCodes = [];
-      currentBookingId = result.booking_id;
+      saveBookingId(result.booking_id);
       document.getElementById("seatMessage").innerText =
         "Da tao don tam. Thanh toan xong moi xac nhan ghe da dat.";
       showPaymentBox(result.booking_id, result.expires_at);
@@ -383,6 +377,7 @@
     }
 
     function showPaymentBox(bookingId, expiresAt) {
+      saveBookingId(bookingId);
       document.getElementById("paymentBox").style.display = "block";
       document.getElementById("bookingInfo").innerText = `Booking ID: ${bookingId}`;
       document.getElementById("paymentMessage").innerText = "";
@@ -392,7 +387,6 @@
 
     function paymentBody() {
       return {
-        payment_method: document.getElementById("paymentMethod").value,
         voucher_code: document.getElementById("voucherCode").value || null,
       };
     }
@@ -415,6 +409,14 @@
         return;
       }
 
+      if (result.checkout_url) {
+        document.getElementById("paymentMessage").innerText =
+          `Da tao link PayOS. So tien: ${result.final_amount}. Thanh toan xong moi co ticket.`;
+        startPaymentStatusTimer();
+        window.open(result.checkout_url, "_blank");
+        return;
+      }
+
       document.getElementById("paymentMessage").innerText =
         `Thanh toan thanh cong. So tien: ${result.final_amount}`;
       clearPaymentCountdown();
@@ -422,6 +424,53 @@
       if (result.ticket_url) {
         showTicketLink(result.ticket_url);
       }
+    }
+
+    async function checkPaymentStatus() {
+      const bookingId = currentBookingId || bookingIdFromUrl() || localStorage.getItem("lastBookingId");
+      if (!bookingId) return;
+
+      saveBookingId(bookingId);
+      document.getElementById("paymentBox").style.display = "block";
+      document.getElementById("bookingInfo").innerText = `Booking ID: ${bookingId}`;
+
+      const response = await fetch(`/bookings/${bookingId}/payments/latest`);
+      if (!response.ok) return;
+
+      const result = await response.json();
+      if (result.status !== "paid") {
+        document.getElementById("paymentMessage").innerText =
+          `Dang cho PayOS xac nhan. So tien: ${result.final_amount}`;
+        return;
+      }
+
+      document.getElementById("paymentMessage").innerText =
+        `Thanh toan thanh cong. So tien: ${result.final_amount}`;
+      clearPaymentCountdown();
+      clearPaymentStatusTimer();
+      showTicketLink(result.ticket_url);
+      await loadSeats();
+    }
+
+    function startPaymentStatusTimer() {
+      clearPaymentStatusTimer();
+      paymentStatusTimer = setInterval(checkPaymentStatus, 3000);
+    }
+
+    function clearPaymentStatusTimer() {
+      if (paymentStatusTimer) {
+        clearInterval(paymentStatusTimer);
+        paymentStatusTimer = null;
+      }
+    }
+
+    function saveBookingId(bookingId) {
+      currentBookingId = bookingId;
+      localStorage.setItem("lastBookingId", bookingId);
+    }
+
+    function bookingIdFromUrl() {
+      return new URLSearchParams(window.location.search).get("booking_id");
     }
 
     function startPaymentCountdown(expiresAt) {
@@ -559,6 +608,7 @@
       selectedShowtimeId = "";
       selectedSeatCodes = [];
       currentBookingId = "";
+      localStorage.removeItem("lastBookingId");
       document.getElementById("selectedShowtime").innerText = "Chua chon suat chieu";
       document.getElementById("seatCount").innerText = "";
       document.getElementById("seats").innerHTML = "";
@@ -569,6 +619,7 @@
       document.getElementById("bookingInfo").innerText = "Chua co booking";
       document.getElementById("paymentCountdown").innerText = "";
       clearPaymentCountdown();
+      clearPaymentStatusTimer();
     }
 
     function brandName(cinemaName) {
@@ -585,6 +636,13 @@
     }
 
     loadMovies();
+
+    const oldBookingId = bookingIdFromUrl() || localStorage.getItem("lastBookingId");
+    if (oldBookingId) {
+      saveBookingId(oldBookingId);
+      checkPaymentStatus();
+      startPaymentStatusTimer();
+    }
   </script>
 </body>
 </html>
