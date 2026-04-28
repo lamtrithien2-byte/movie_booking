@@ -10,6 +10,19 @@ def create_payment(db: Session, data: dict):
     return payment
 
 
+def get_payment_by_order_code(db: Session, order_code: int):
+    return db.query(Payment).filter(Payment.order_code == order_code).first()
+
+
+def get_latest_payment_by_booking_id(db: Session, booking_id: int):
+    return (
+        db.query(Payment)
+        .filter(Payment.booking_id == booking_id)
+        .order_by(Payment.created_at.desc(), Payment.id.desc())
+        .first()
+    )
+
+
 def get_voucher_by_code(db: Session, code: str):
     return db.query(Voucher).filter(Voucher.code == code).first()
 
