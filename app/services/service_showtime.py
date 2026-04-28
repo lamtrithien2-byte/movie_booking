@@ -66,7 +66,7 @@ def list_showtimes(
     if has_district and not has_city:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please choose city before choosing district",
+            detail="Vui long chon thanh pho truoc khi chon quan",
         )
 
     query = (
@@ -104,7 +104,7 @@ def get_showtime(
 ) -> dict:
     showtime = repo_showtime.get_showtime_by_id(db, showtime_id)
     if showtime is None or (only_active and not showtime.is_active):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Showtime not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay suat chieu")
     return user_showtime_data(showtime) if user_view else showtime_data(showtime)
 
 
@@ -115,19 +115,19 @@ def check_movie_cinema_and_room(
     room_id: int,
 ) -> None:
     if repo_movie.get_movie_by_id(db, movie_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phim")
 
     if repo_cinema.get_cinema_by_id(db, cinema_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cinema not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay rap")
 
     room = repo_room.get_room_by_id(db, room_id)
     if room is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phong")
 
     if room.cinema_id != cinema_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Room does not belong to this cinema",
+            detail="Phong khong thuoc rap nay",
         )
 
 
@@ -139,7 +139,7 @@ def create_showtime(db: Session, data: dict) -> dict:
 def update_showtime(db: Session, showtime_id: int, data: dict) -> dict:
     showtime = repo_showtime.get_showtime_by_id(db, showtime_id)
     if showtime is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Showtime not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay suat chieu")
 
     check_movie_cinema_and_room(db, data["movie_id"], data["cinema_id"], data["room_id"])
     return showtime_data(repo_showtime.update_showtime(db, showtime, data))
@@ -148,6 +148,6 @@ def update_showtime(db: Session, showtime_id: int, data: dict) -> dict:
 def delete_showtime(db: Session, showtime_id: int) -> dict:
     showtime = repo_showtime.get_showtime_by_id(db, showtime_id)
     if showtime is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Showtime not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay suat chieu")
     repo_showtime.delete_showtime(db, showtime)
-    return {"message": "Showtime deleted successfully"}
+    return {"message": "Da xoa suat chieu"}

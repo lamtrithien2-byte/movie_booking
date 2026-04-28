@@ -41,7 +41,7 @@ def list_movies(
 def get_movie(db: Session, movie_id: int, only_active: bool = True) -> dict:
     movie = repo_movie.get_movie_by_id(db, movie_id)
     if movie is None or (only_active and not movie.is_active):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phim")
     return movie_basic_data(movie)
 
 
@@ -90,13 +90,13 @@ def create_movie(db: Session, data: dict) -> dict:
 def update_movie(db: Session, movie_id: int, data: dict) -> dict:
     movie = repo_movie.get_movie_by_id(db, movie_id)
     if movie is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phim")
     return movie_basic_data(repo_movie.update_movie(db, movie, data))
 
 
 def delete_movie(db: Session, movie_id: int) -> dict:
     movie = repo_movie.get_movie_by_id(db, movie_id)
     if movie is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Movie not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay phim")
     repo_movie.delete_movie(db, movie)
-    return {"message": "Movie deleted successfully"}
+    return {"message": "Da xoa phim"}

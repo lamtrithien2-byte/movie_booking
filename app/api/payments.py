@@ -1,6 +1,6 @@
 from datetime import datetime, time
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -13,7 +13,6 @@ router = APIRouter(tags=["payments"])
 
 
 class CreatePaymentRequest(BaseModel):
-    payment_method: str = Field(pattern="^(card|bank_transfer)$")
     voucher_code: str | None = None
 
 
@@ -31,7 +30,7 @@ class VoucherRequest(BaseModel):
         try:
             datetime.strptime(value, "%d/%m/%Y")
         except ValueError as exc:
-            raise ValueError("expires_at must be dd/mm/yyyy, example: 31/12/2026") from exc
+            raise ValueError("expires_at phai co dang dd/mm/yyyy, vi du: 31/12/2026") from exc
         return value
 
     def to_data(self) -> dict:
@@ -61,6 +60,11 @@ def create_payment(
     return service_payment.create_payment(db, booking_id, body.model_dump())
 
 
+@router.get("/bookings/{booking_id}/payments/latest")
+def get_latest_payment(booking_id: int, db: Session = Depends(get_db)):
+    return service_payment.get_latest_payment(db, booking_id)
+
+
 @router.get("/bookings/{booking_id}/payments/ticket")
 def download_ticket(booking_id: int, db: Session = Depends(get_db)):
     path = service_ticket.create_ticket_pdf(db, booking_id)
@@ -69,6 +73,11 @@ def download_ticket(booking_id: int, db: Session = Depends(get_db)):
         media_type="application/pdf",
         filename=path.name,
     )
+
+
+@router.post("/payments/payos/webhook")
+async def payos_webhook(request: Request, db: Session = Depends(get_db)):
+    return service_payment.handle_payos_webhook(db, await request.json())
 
 
 @router.get("/admin/vouchers")

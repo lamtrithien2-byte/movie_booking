@@ -28,7 +28,7 @@ def ticket_lines(ticket: dict) -> list[str]:
         "",
         f"Ngay chieu: {ticket['show_date']}",
         f"Gio chieu: {ticket['show_time']}",
-        f"Thanh toan: {ticket['payment_method'] or ''}",
+        "Thanh toan: PayOS",
         f"Voucher: {ticket.get('voucher_code') or ''}",
         f"Tien thanh toan: {ticket.get('final_amount') or 0}",
         f"Phong: {ticket['room_name'] or ''}",

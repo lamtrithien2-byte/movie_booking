@@ -63,7 +63,7 @@ def decode_access_token(token: str) -> dict:
     try:
         header_base64, payload_base64, signature_base64 = token.split(".")
     except ValueError as exc:
-        raise ValueError("Invalid token format") from exc
+        raise ValueError("Token khong hop le") from exc
 
     token_data = f"{header_base64}.{payload_base64}"
     expected_signature = hmac.new(
@@ -74,11 +74,11 @@ def decode_access_token(token: str) -> dict:
     expected_signature_base64 = encode_base64_url(expected_signature)
 
     if not hmac.compare_digest(signature_base64, expected_signature_base64):
-        raise ValueError("Invalid token signature")
+        raise ValueError("Token khong hop le")
 
     payload = json.loads(decode_base64_url(payload_base64))
     if int(payload["exp"]) < int(time.time()):
-        raise ValueError("Token has expired")
+        raise ValueError("Token da het han")
 
     return payload
 
@@ -90,7 +90,7 @@ def get_current_user(
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing access token",
+            detail="Thieu access token",
         )
 
     try:
@@ -105,13 +105,13 @@ def get_current_user(
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User does not exist",
+            detail="Tai khoan khong ton tai",
         )
 
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User is inactive",
+            detail="Tai khoan da bi khoa",
         )
 
     return {
@@ -129,7 +129,7 @@ def require_roles(*allowed_roles: str) -> Callable:
         if not user_roles.intersection(allowed_roles):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Permission denied",
+                detail="Khong co quyen truy cap",
             )
         return current_user
 
