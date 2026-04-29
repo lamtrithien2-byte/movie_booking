@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:18
+    container_name: movie_booking_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 200202
+      POSTGRES_DB: movie_booking
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d movie_booking"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: movie_booking_api
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:200202@db:5432/movie_booking
+      APP_BASE_URL: http://localhost:8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app/tickets:/app/app/tickets
+
+volumes:
+  postgres_data:
