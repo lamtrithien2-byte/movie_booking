@@ -280,18 +280,9 @@ def handle_payos_webhook(db: Session, body: dict) -> dict:
     if data.get("code") != "00":
         return {"success": True}
 
-    payment = repo_payment.get_payment_by_order_code(db, int(data["orderCode"]))
-    if payment is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay payment")
-    if payment.status == "paid":
-        return {"success": True}
+    from app.payment_task import check_payment_by_order_code
 
-    booking = repo_booking.get_booking_by_id(db, payment.booking_id)
-    if booking is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Khong tim thay booking")
-
-    voucher = repo_payment.get_voucher_by_code(db, payment.voucher_code) if payment.voucher_code else None
-    complete_payment(db, payment, booking, pending_seat_codes(booking), voucher)
+    check_payment_by_order_code.delay(int(data["orderCode"]))
     return {"success": True}
 
 
